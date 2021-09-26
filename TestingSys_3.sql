@@ -18,32 +18,30 @@ WHERE
 
 -- -------------------------------Question 4: Lấy ra thông tin account có full name dài nhất
 
-
 SELECT 
     *
 FROM
-    `account`
+    `Account`
 WHERE
-    fullname IN (SELECT 
-            MAX(fullname)
+    LENGTH(REPLACE(fullname, ' ', '')) = (SELECT 
+            MAX(LENGTH(REPLACE(fullname, ' ', '')))
         FROM
             `Account`);
 
 -- -------------------------------Question 5: Lấy ra thông tin account có full name dài nhất và thuộc phòng ban có id = 3
 
-
 SELECT 
     *
 FROM
-    `account`
+    `Account`
 WHERE
-    fullname IN (SELECT 
-            MAX(fullname)
+    DepartmentID = 3
+        AND LENGTH(REPLACE(fullname, ' ', '')) IN (SELECT 
+            MAX(LENGTH(fullname))
         FROM
             `account`
-        WHERE
-            departmentID = 3);
-
+        GROUP BY departmentId)
+;
 
 -- -------------------------------Question 6: Lấy ra tên group đã tham gia trước ngày 20/12/2019
 
@@ -57,11 +55,6 @@ WHERE
 
 -- -------------------------------Question 7: Lấy ra ID của question có >= 4 câu trả lời
 
-SELECT 
-    *
-FROM
-    answer;
-    
     
 SELECT 
     a.questionID, COUNT(a.questionID) AS count_questionID
