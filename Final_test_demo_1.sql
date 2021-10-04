@@ -101,37 +101,29 @@ ORDER BY Number_of_car;
 
 -- ----------------------------------Question C : Write a user function (without parameter) that return maker who has sale most cars in this year.
 
+DROP FUNCTION IF EXISTS Most_car_maker;
 DELIMITER $$
 CREATE FUNCTION Most_car_maker() RETURNS varchar(50)
 DETERMINISTIC
 BEGIN
 DECLARE maker_name varchar(50);
+                                                                        
+			WITH cte_temp AS (
+				SELECT 
+					cr.maker, SUM(o.amount) AS total_cars
+				FROM
+					car cr
+				JOIN
+					`order` o ON cr.carID = o.carID
+				JOIN
+					customer c ON o.customerID = c.customerID
+				WHERE
+					o.`status` = 1
+						AND YEAR(o.DeliveryDate) = YEAR(NOW())
+				GROUP BY cr.maker)
 
-SELECT 
-    maker
-INTO maker_name FROM
-    (SELECT 
-    c.maker, SUM(o.amount) AS total_cars
-FROM
-    car c
-        JOIN
-    `order` o ON c.carID = o.carID
-WHERE
-    o.`status` = 1
-        AND o.DeliveryDate >= '2021-01-01'
-GROUP BY c.maker
-HAVING total_cars IN (SELECT 
-        MAX(A.total_cars)
-    FROM
-        (SELECT 
-            SUM(o.amount) AS total_cars
-        FROM
-            car c
-        JOIN `order` o ON c.carID = o.carID
-        WHERE
-            o.`status` = 1
-                AND o.DeliveryDate >= '2021-01-01'
-        GROUP BY c.maker) AS A)) as B;
+	SELECT maker INTO maker_name FROM cte_temp WHERE cte_temp.total_cars = ( SELECT MAX(cte_temp.total_cars) from cte_temp);
+
 RETURN maker_name ; 
 END $$
 DELIMITER ; 
@@ -146,23 +138,40 @@ select * from `Order`;
 commit;
 rollback;
 
-DROP PROCEDURE IF EXISTS remove_canceled_orders;
+DROP PROCEDURE IF EXISTS remove_cancelled_orders;
 DELIMITER $$
-CREATE PROCEDURE remove_canceled_orders()
+CREATE PROCEDURE remove_cancelled_orders()
 BEGIN
 SELECT 
     COUNT(orderID) AS Canceled_oder_total
 FROM
     `Order`
 WHERE
-    orderDate < '2021-01-01'
+    YEAR(orderDate) < YEAR(NOW())
         AND `status` = '2';		
         
 
 DELETE FROM `Order` 
 WHERE
-    orderDate < '2021-01-01'
+    YEAR(orderDate) < YEAR(NOW())
     AND `status` = '2';
+    
+END$$
+DELIMITER ; 
+
+
+-- ------------------------------------------------- CACH 2
+
+DROP PROCEDURE IF EXISTS remove_cancelled_orders;
+DELIMITER $$
+CREATE PROCEDURE remove_cancelled_orders()
+BEGIN
+DELETE FROM `Order` 
+WHERE
+    YEAR(orderDate) < YEAR(NOW())
+    AND `status` = '2';
+    
+SELECT ROW_COUNT() AS DeletedCount;
     
 END$$
 DELIMITER ; 
@@ -214,17 +223,24 @@ CALL Ordered_check();
 --                                    order information (DeliveryDate < OrderDate + 15).
 
 
+USE Final_Testing_Exam1;
+DROP TRIGGER IF EXISTS Trig_check_date
 DELIMITER $$
-CREATE TRIGGER Trig_check_invalid_input
-BEFORE INSERT ON `Oder` FOR EACH ROW
+CREATE TRIGGER Trig_check_date
+BEFORE INSERT ON `Order` FOR EACH ROW
 BEGIN
 
-	IF NEW.DeliveryDate < NEW.OrderDate +15 THEN SET NEW.DeliveryDate = NULL,NEW.OrderDate =NULL ;
+	IF DATEDIFF(NEW.DeliveryDate,NEW.OrderDate) <15 THEN  
+    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'INSERT FAILED (DeliveryDate < OrderDate + 15)' ;
     END IF;
 
 END$$
 DELIMITER ; 
 
+
+
+INSERT INTO	`Order` 	(CustomerID, 	CarID, 	Amount, 	SalePrice, 	OrderDate, 		DeliveryDate, 	DeliveryAddress, 	`Status`, 	Note)
+	VALUES 				(1,				2,		1,			8000000, 	'2019-05-01',	'2019-05-26', 	'HP' ,				0,			'Da dat hang');
 
 
 
